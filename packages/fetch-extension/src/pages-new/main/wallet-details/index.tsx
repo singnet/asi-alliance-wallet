@@ -1,7 +1,7 @@
 import { useNotification } from "@components/notification";
 import { WalletStatus } from "@keplr-wallet/stores";
 import { isASIChain as isASIChainPredicate } from "@keplr-wallet/asi-chain";
-import { formatAddress, separateNumericAndDenom } from "@utils/format";
+import { separateNumericAndDenom } from "@utils/format";
 import classnames from "classnames";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useIntl } from "react-intl";
@@ -88,7 +88,8 @@ export const WalletDetailsView = observer(
     const asiChainAddress =
       (isASIChain && selectedKeyStore?.meta?.["asiChainAddress"]) || "";
 
-    // Helper: Get display account name
+    console.log(keyRingStore, selectedKeyStore, asiChainAddress);
+
     const getDisplayAccountName = () => {
       const meta = selectedKeyStore?.meta;
       if (!meta) return "";
@@ -109,8 +110,6 @@ export const WalletDetailsView = observer(
         );
       }
     };
-
-    const displayAccountName = getDisplayAccountName();
 
     // Helper: Get addresses for display
     const getDisplayBech32Address = () => {
@@ -276,14 +275,14 @@ export const WalletDetailsView = observer(
         return "Unable to Load Key";
       }
 
-      return displayAccountName || <Skeleton height="21px" />;
+      return getDisplayAccountName() || <Skeleton height="21px" />;
     };
 
     return (
       <div>
         <div className={style["wallet-details-header"]}>
           <button onClick={handleChainSelect} className={style["chain-select"]}>
-            {formatAddress(current.chainName)}
+            {current.chainName}
             <img
               src={require("@assets/svg/wireframe/chevron-down.svg")}
               alt=""
@@ -300,18 +299,20 @@ export const WalletDetailsView = observer(
           >
             <div className={style["wallet-address"]}>{renderAccountName()}</div>
             <div className={style["wallet-detail-body"]}>
-              <WalletContent
-                walletStatus={accountInfo.walletStatus}
-                rejectionReason={accountInfo.rejectionReason}
-                isASIChain={isASIChain}
-                isEvm={isEvm}
-                asiChainAddress={asiChainAddress}
-                displayBech32Address={displayBech32Address}
-                displayEvmAddress={displayEvmAddress}
-                onCopy={copyAddress}
-                outerDivRef={bech32TailMeasureRef}
-                outerDivRefEvm={evmTailMeasureRef}
-              />
+              <div style={{ width: "100%" }}>
+                <WalletContent
+                  walletStatus={accountInfo.walletStatus}
+                  rejectionReason={accountInfo.rejectionReason}
+                  isASIChain={isASIChain}
+                  isEvm={isEvm}
+                  asiChainAddress={asiChainAddress}
+                  displayBech32Address={displayBech32Address}
+                  displayEvmAddress={displayEvmAddress}
+                  onCopy={copyAddress}
+                  outerDivRef={bech32TailMeasureRef}
+                  outerDivRefEvm={evmTailMeasureRef}
+                />
+              </div>
             </div>
           </div>
           <Button onClick={handleWalletSelect} className={style["change-net"]}>

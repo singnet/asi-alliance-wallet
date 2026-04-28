@@ -33,39 +33,39 @@ export const WalletContent: React.FC<WalletContentProps> = ({
   outerDivRef,
   outerDivRefEvm,
 }) => {
-  const isRejected = walletStatus === WalletStatus.Rejected;
+  if (walletStatus === WalletStatus.Rejected) {
+    return (
+      <div className={style["walletRejected"]}>
+        <RejectionReasonTooltip rejectionReason={rejectionReason} />
+      </div>
+    );
+  }
+
+  if (isASIChain) {
+    return (
+      <ASIChainAddressDisplay
+        address={asiChainAddress}
+        onCopy={onCopy}
+        containerRef={outerDivRef}
+      />
+    );
+  }
+
+  if (isEvm || displayEvmAddress) {
+    return (
+      <EVMAddressDisplay
+        address={displayEvmAddress}
+        onCopy={onCopy}
+        containerRef={outerDivRefEvm}
+      />
+    );
+  }
 
   return (
-    <div style={{ width: "100%" }}>
-      <div className={style["walletRejected"]}>
-        {isRejected && (
-          <RejectionReasonTooltip rejectionReason={rejectionReason} />
-        )}
-      </div>
-
-      {!isRejected && !isEvm && isASIChain && (
-        <ASIChainAddressDisplay
-          address={asiChainAddress}
-          onCopy={onCopy}
-          containerRef={outerDivRef}
-        />
-      )}
-
-      {!isRejected && !isEvm && !isASIChain && (
-        <Bech32AddressDisplay
-          address={displayBech32Address}
-          onCopy={onCopy}
-          containerRef={outerDivRef}
-        />
-      )}
-
-      {!isRejected && !isASIChain && (isEvm || displayEvmAddress) && (
-        <EVMAddressDisplay
-          address={displayEvmAddress}
-          onCopy={onCopy}
-          containerRef={outerDivRefEvm}
-        />
-      )}
-    </div>
+    <Bech32AddressDisplay
+      address={displayBech32Address}
+      onCopy={onCopy}
+      containerRef={outerDivRef}
+    />
   );
 };

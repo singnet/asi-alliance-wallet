@@ -523,6 +523,10 @@ export class KeyRingService {
 
     const ks = this.keyRing.getCurrentKeyStore();
 
+    // Backfill ASI Chain addresses early, before CardanoService initialization
+    // This ensures the backfill runs even if CardanoService initialization fails
+    this.backfillASIChainAddressesInBackground();
+
     if (ks && walletSupportsCardano(ks)) {
       try {
         const currentChainId = await this.chainsService.getSelectedChain();
@@ -550,8 +554,6 @@ export class KeyRingService {
         throw error;
       }
     }
-
-    this.backfillASIChainAddressesInBackground();
 
     return this.keyRing.status;
   }

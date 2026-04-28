@@ -1,8 +1,6 @@
 import { Bech32Address } from "@keplr-wallet/cosmos";
 import { ChainInfo } from "@keplr-wallet/types";
-
-const ASI_COIN_TYPE = 60;
-const ASI_BECH32_PREFIX = "asi";
+import { ASI_COIN_TYPE, ASI_DECIMALS } from "@keplr-wallet/asi-chain";
 
 export const ASI_CHAIN_FEATURE = "asi-chain";
 
@@ -16,29 +14,28 @@ export const INITIAL_ASI_CHAIN_CONFIG: ChainInfo = {
     observer: "",
   },
   bip44: { coinType: ASI_COIN_TYPE },
-  bech32Config: Bech32Address.defaultBech32Config(ASI_BECH32_PREFIX),
+  bech32Config: Bech32Address.defaultBech32Config("0000"),
   stakeCurrency: {
-    coinDenom: "TESTASI",
-    coinMinimalDenom: "atestasi",
-    coinDecimals: 18,
+    coinDenom: "ASI",
+    coinMinimalDenom: "ASI",
+    coinDecimals: ASI_DECIMALS,
   },
   currencies: [
     {
-      coinDenom: "TESTASI",
-      coinMinimalDenom: "atestasi",
-      coinDecimals: 18,
+      coinDenom: "ASI",
+      coinMinimalDenom: "ASI",
+      coinDecimals: ASI_DECIMALS,
     },
   ],
   feeCurrencies: [
     {
-      coinDenom: "TESTASI",
-      coinMinimalDenom: "atestasi",
-      coinDecimals: 18,
-
+      coinDenom: "ASI",
+      coinMinimalDenom: "ASI",
+      coinDecimals: ASI_DECIMALS,
       gasPriceStep: {
         low: 0,
-        average: 5000000000,
-        high: 6250000000,
+        average: 0,
+        high: 0,
       },
     },
   ],
