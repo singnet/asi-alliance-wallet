@@ -527,6 +527,10 @@ export class KeyRingService {
     // This ensures the backfill runs even if CardanoService initialization fails
     this.backfillASIChainAddressesInBackground();
 
+    // Notify UI surfaces immediately that keyring has been updated,
+    // so they can refresh and display addresses that are already in the store
+    this.broadcastKeyringSurfacesSync();
+
     if (ks && walletSupportsCardano(ks)) {
       try {
         const currentChainId = await this.chainsService.getSelectedChain();
@@ -547,11 +551,12 @@ export class KeyRingService {
           this.cardanoRestoreByChainId.clear();
         }
       } catch (error) {
+        // CardanoService failures should not break authentication for other chains.
+        // Log the error but continue to allow ASI Chain and other functionality to work.
         console.error(
           "[KeyRingService] Failed to initialize CardanoService:",
           error
         );
-        throw error;
       }
     }
 
@@ -594,6 +599,10 @@ export class KeyRingService {
             }
           }
         }
+        // Always broadcast sync to refresh UI with updated keystore meta,
+        // even if no new addresses were found. This ensures the UI refreshes
+        // when unlocking and can display already-populated addresses.
+        this.broadcastKeyringSurfacesSync();
       } catch (e) {
         console.error("[KeyRingService] ASI Chain address backfill failed:", e);
       }

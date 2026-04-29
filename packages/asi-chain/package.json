@@ -4,9 +4,6 @@
   "description": "ASI Chain integration for Keplr Wallet",
   "main": "build/index.js",
   "types": "build/index.d.ts",
-  "files": [
-    "build"
-  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf node_modules; rm -rf build",
