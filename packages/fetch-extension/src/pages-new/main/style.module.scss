@@ -17,6 +17,14 @@
   }
 }
 
+.wallet-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-weight: 400;
+}
+
 .wallet-name,
 .address {
   display: flex;

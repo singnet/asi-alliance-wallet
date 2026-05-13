@@ -1,18 +1,10 @@
-import { Address } from "@components/address";
 import { useNotification } from "@components/notification";
-import { ToolTip } from "@components/tooltip";
-import { WalletError } from "@keplr-wallet/router";
 import { WalletStatus } from "@keplr-wallet/stores";
-import { WalletConfig } from "@keplr-wallet/stores/build/chat/user-details";
 import {
   ASI_CHAIN_ADDRESS_META_KEY,
   isASIChain as isASIChainPredicate,
 } from "@keplr-wallet/asi-chain";
-import {
-  formatAddress,
-  separateNumericAndDenom,
-  splitBech32,
-} from "@utils/format";
+import { separateNumericAndDenom } from "@utils/format";
 import classnames from "classnames";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useIntl } from "react-intl";
@@ -23,14 +15,11 @@ import { addressCacheStore } from "../../../utils/address-cache-store";
 import { Balances } from "../balances";
 import style from "../style.module.scss";
 import { observer } from "mobx-react-lite";
-import { txType } from "./constants";
 import { Skeleton } from "@components-v2/skeleton-loader";
 import { fetchProposalNodes } from "../../activity/utils";
-import { ResponsiveAddressView } from "./address-view";
-// TODO: refactor components
-// import { WalletContent } from "./wallet-content";
-// import { PendingTransactions } from "./pending-transactions";
-// import { RewardsCard } from "./rewards-card";
+import { WalletContent } from "./wallet-content";
+import { PendingTransactions } from "./pending-transactions";
+import { RewardsCard } from "./rewards-card";
 
 export const WalletDetailsView = observer(
   ({
@@ -44,7 +33,6 @@ export const WalletDetailsView = observer(
   }) => {
     const {
       keyRingStore,
-      chatStore,
       accountStore,
       chainStore,
       queriesStore,
@@ -52,99 +40,64 @@ export const WalletDetailsView = observer(
       activityStore,
       analyticsStore,
     } = useStore();
-    const userState = chatStore.userDetailsStore;
 
-    const { hasFET, enabledChainIds } = userState;
-    const config: WalletConfig = userState.walletConfig;
     const current = chainStore.current;
-    const [chatTooltip, setChatTooltip] = useState("");
-    const [chatDisabled, setChatDisabled] = useState(false);
     const bech32TailMeasureRef = useRef<HTMLDivElement>(null);
     const evmTailMeasureRef = useRef<HTMLDivElement>(null);
-
     const [currentTxnType, setCurrentTxnType] = useState<string>("");
 
-    useEffect(() => {
-      if (keyRingStore.keyRingType === "ledger") {
-        setChatTooltip("Coming soon for ledger");
-        setChatDisabled(true);
-        return;
-      }
-
-      if (config.requiredNative && !hasFET) {
-        setChatTooltip("You need to have FET balance to use this feature");
-        setChatDisabled(true);
-        return;
-      } else {
-        setChatTooltip("");
-        setChatDisabled(false);
-      }
-
-      if (!enabledChainIds.includes(current.chainId)) {
-        setChatDisabled(true);
-        setChatTooltip("Feature not available on this network");
-        return;
-      }
-
-      if (!chatDisabled && chatTooltip === "") {
-        setChatDisabled(true);
-        setChatTooltip("Feature coming soon.");
-      }
-    }, [
-      hasFET,
-      enabledChainIds,
-      config.requiredNative,
-      keyRingStore.keyRingType,
-      current.chainId,
-    ]);
-
     const navigate = useNavigate();
-    const accountInfo = accountStore.getAccount(chainStore.current.chainId);
-
-    const icnsPrimaryName = (() => {
-      if (
-        uiConfigStore.icnsInfo &&
-        chainStore.hasChain(uiConfigStore.icnsInfo.chainId)
-      ) {
-        const queries = queriesStore.get(uiConfigStore.icnsInfo.chainId);
-        const icnsQuery = queries.icns.queryICNSNames.getQueryContract(
-          uiConfigStore.icnsInfo.resolverContractAddress,
-          accountStore.getAccount(chainStore.current.chainId).bech32Address
-        );
-
-        return icnsQuery.primaryName;
-      }
-    })();
-
     const intl = useIntl();
     const notification = useNotification();
 
+    const accountInfo = accountStore.getAccount(chainStore.current.chainId);
     const isEvm = chainStore.current.features?.includes("evm") ?? false;
     const isASIChain = isASIChainPredicate(chainStore.current);
 
-    const selectedWalletId =
-      keyRingStore.multiKeyStoreInfo.find((ks) => ks.selected)?.meta?.[
-        "__id__"
-      ] || "";
+    // Helper: Get ICNS primary name
+    const icnsPrimaryName = (() => {
+      if (
+        !uiConfigStore.icnsInfo ||
+        !chainStore.hasChain(uiConfigStore.icnsInfo.chainId)
+      ) {
+        return undefined;
+      }
+      const queries = queriesStore.get(uiConfigStore.icnsInfo.chainId);
+      return queries.icns.queryICNSNames.getQueryContract(
+        uiConfigStore.icnsInfo.resolverContractAddress,
+        accountStore.getAccount(chainStore.current.chainId).bech32Address
+      ).primaryName;
+    })();
 
-    const cachedSelectedAddress =
-      selectedWalletId && chainStore.current.chainId
-        ? addressCacheStore.getCache(chainStore.current.chainId)[
-            selectedWalletId
-          ] || ""
-        : "";
-
+    // Helper: Get selected wallet info
     const selectedKeyStore = keyRingStore.multiKeyStoreInfo.find(
       (ks) => ks.selected
     );
+    const selectedWalletId = selectedKeyStore?.meta?.["__id__"] || "";
+
+    const getCachedSelectedAddress = () => {
+      if (!selectedWalletId || !chainStore.current.chainId) {
+        return "";
+      }
+      return (
+        addressCacheStore.getCache(chainStore.current.chainId)[
+          selectedWalletId
+        ] || ""
+      );
+    };
+
+    const cachedSelectedAddress = getCachedSelectedAddress();
 
     const asiChainAddress =
       (isASIChain && selectedKeyStore?.meta?.[ASI_CHAIN_ADDRESS_META_KEY]) ||
       "";
 
-    const displayAccountName = (() => {
+    console.log(keyRingStore, selectedKeyStore, asiChainAddress);
+
+    const getDisplayAccountName = () => {
       const meta = selectedKeyStore?.meta;
       if (!meta) return "";
+
       try {
         const nameByChain = meta["nameByChain"]
           ? JSON.parse(meta["nameByChain"])
@@ -160,40 +113,73 @@ export const WalletDetailsView = observer(
           intl.formatMessage({ id: "setting.keyring.unnamed-account" })
         );
       }
-    })();
+    };
 
-    const displayBech32Address =
-      accountInfo.walletStatus === WalletStatus.Loaded
-        ? accountInfo.bech32Address
-        : cachedSelectedAddress;
+    // Helper: Get addresses for display
+    const getDisplayBech32Address = () => {
+      if (accountInfo.walletStatus === WalletStatus.Loaded) {
+        return accountInfo.bech32Address;
+      }
+      return cachedSelectedAddress;
+    };
 
-    const displayEvmAddress =
-      isEvm || accountInfo.hasEthereumHexAddress
-        ? accountInfo.walletStatus === WalletStatus.Loaded
-          ? accountInfo.ethereumHexAddress
-          : cachedSelectedAddress || accountInfo.ethereumHexAddress
-        : "";
+    const displayBech32Address = getDisplayBech32Address();
 
+    const getDisplayEvmAddress = () => {
+      const hasEvmAddress = isEvm || accountInfo.hasEthereumHexAddress;
+      if (!hasEvmAddress) {
+        return "";
+      }
+
+      if (accountInfo.walletStatus === WalletStatus.Loaded) {
+        return accountInfo.ethereumHexAddress;
+      }
+
+      return cachedSelectedAddress || accountInfo.ethereumHexAddress;
+    };
+
+    const displayEvmAddress = getDisplayEvmAddress();
+
+    // Handler: Copy address to clipboard
     const copyAddress = useCallback(
       async (address: string) => {
-        if (accountInfo.walletStatus === WalletStatus.Loaded) {
-          await navigator.clipboard.writeText(address);
-          notification.push({
-            placement: "top-center",
-            type: "success",
-            duration: 2,
-            content: intl.formatMessage({
-              id: "main.address.copied",
-            }),
-            canDelete: true,
-            transition: {
-              duration: 0.25,
-            },
-          });
+        if (accountInfo.walletStatus !== WalletStatus.Loaded) {
+          return;
         }
+        await navigator.clipboard.writeText(address);
+        notification.push({
+          placement: "top-center",
+          type: "success",
+          duration: 2,
+          content: intl.formatMessage({
+            id: "main.address.copied",
+          }),
+          canDelete: true,
+          transition: {
+            duration: 0.25,
+          },
+        });
       },
       [accountInfo.walletStatus, notification, intl]
     );
+
+    const handleChainSelect = () => {
+      setIsSelectNetOpen(true);
+    };
+
+    const handleWalletSelect = () => {
+      setIsSelectWalletOpen(true);
+      analyticsStore.logEvent("change_wallet_click", {
+        pageName: "Home",
+      });
+    };
+
+    const handleClaimRewards = () => {
+      analyticsStore.logEvent("claim_all_staking_reward_click", {
+        pageName: "Home",
+      });
+      navigate("/stake");
+    };
 
     const effectiveAddress = isASIChain
       ? asiChainAddress
@@ -204,25 +190,29 @@ export const WalletDetailsView = observer(
       activityStore.getChainId !== current.chainId;
 
     useEffect(() => {
-      if (!isEvm && !isASIChain) {
-        const timeout = setTimeout(async () => {
-          const nodes = activityStore.sortedNodesProposals;
-          if (nodes.length === 0) {
-            const nodes = await fetchProposalNodes(
-              "",
-              current.chainId,
-              effectiveAddress
-            );
-            if (nodes.length) {
-              nodes.forEach((node: any) => activityStore.addProposalNode(node));
-            }
-          }
-        }, 100);
-
-        return () => {
-          clearTimeout(timeout);
-        };
+      if (isEvm || isASIChain) {
+        return;
       }
+
+      const timeout = setTimeout(async () => {
+        const nodes = activityStore.sortedNodesProposals;
+        if (nodes.length === 0) {
+          const newNodes = await fetchProposalNodes(
+            "",
+            current.chainId,
+            effectiveAddress
+          );
+          if (newNodes.length) {
+            newNodes.forEach((node: any) =>
+              activityStore.addProposalNode(node)
+            );
+          }
+        }
+      }, 100);
+
+      return () => {
+        clearTimeout(timeout);
+      };
     }, [
       effectiveAddress,
       current.chainId,
@@ -237,9 +227,10 @@ export const WalletDetailsView = observer(
         activityStore.setAddress(effectiveAddress);
         activityStore.setChainId(current.chainId);
       }
-      if (effectiveAddress !== "" && !isEvm && !isASIChain) {
-        activityStore.accountInit();
+      if (effectiveAddress === "" || isEvm || isASIChain) {
+        return;
       }
+      activityStore.accountInit();
     }, [
       effectiveAddress,
       current.chainId,
@@ -250,71 +241,59 @@ export const WalletDetailsView = observer(
     ]);
 
     useEffect(() => {
-      if (Object.values(activityStore.getPendingTxn).length > 0) {
-        const txns: any = Object.values(activityStore.getPendingTxn);
-        setCurrentTxnType(txns[0].type);
+      const pendingTxns = Object.values(activityStore.getPendingTxn);
+      if (pendingTxns.length > 0) {
+        const tx = pendingTxns[0];
+
+        setCurrentTxnType((tx as any)?.type ?? "Unknown");
       }
     }, [activityStore.getPendingTxn]);
 
     const queries = queriesStore.get(current.chainId);
-
-    const rewards = !isASIChain
-      ? queries.cosmos.queryRewards.getQueryBech32Address(
+    const rewards = isASIChain
+      ? undefined
+      : queries.cosmos.queryRewards.getQueryBech32Address(
           accountInfo.bech32Address
-        )
-      : undefined;
+        );
 
     const stakableReward = rewards?.stakableReward;
     const rewardsBal = stakableReward?.toString() ?? "0";
-
     const { numericPart: rewardsBalNumber } =
       separateNumericAndDenom(rewardsBal);
 
+    // Render: Account name with ICNS
+    const renderAccountName = () => {
+      if (accountInfo.walletStatus === WalletStatus.Loaded) {
+        if (icnsPrimaryName) {
+          return icnsPrimaryName;
+        }
+        if (accountInfo.name) {
+          return accountInfo.name;
+        }
+        return intl.formatMessage({
+          id: "setting.keyring.unnamed-account",
+        });
+      }
+
+      if (accountInfo.walletStatus === WalletStatus.Rejected) {
+        return "Unable to Load Key";
+      }
+
+      return getDisplayAccountName() || <Skeleton height="21px" />;
+    };
+
     return (
       <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-            fontWeight: 400,
-          }}
-        >
-          <button
-            onClick={() => {
-              setIsSelectNetOpen(true);
-            }}
-            className={style["chain-select"]}
-          >
-            {formatAddress(current.chainName)}
-            {/* {formatAddress(current.chainName)} TODO check this*/}
+        <div className={style["wallet-details-header"]}>
+          <button onClick={handleChainSelect} className={style["chain-select"]}>
+            {current.chainName}
             <img
               src={require("@assets/svg/wireframe/chevron-down.svg")}
               alt=""
             />
           </button>
-
-          {/* Chat disabled */}
-          {/* <button
-            disabled={chatDisabled}
-            onClick={() => {
-              navigate("/chat");
-            }}
-            className={style["chat-button"]}
-          >
-            <img
-              id="chat-img"
-              src={require("@assets/svg/wireframe/chat-alt.svg")}
-              alt=""
-            />
-            {chatDisabled && (
-              <UncontrolledTooltip placement="top" target={"chat-img"}>
-                {chatTooltip}
-              </UncontrolledTooltip>
-            )}
-          </button> */}
         </div>
+
         <div className={style["wallet-detail-card"]}>
           <div
             className={classnames(style["wallet-detail-main"], {
@@ -322,283 +301,52 @@ export const WalletDetailsView = observer(
                 accountInfo.walletStatus === WalletStatus.Rejected,
             })}
           >
-            <div className={style["wallet-address"]}>
-              {(() => {
-                if (accountInfo.walletStatus === WalletStatus.Loaded) {
-                  if (icnsPrimaryName) {
-                    return icnsPrimaryName;
-                  }
-
-                  if (accountInfo.name) {
-                    return accountInfo.name;
-                  }
-                  return intl.formatMessage({
-                    id: "setting.keyring.unnamed-account",
-                  });
-                } else if (accountInfo.walletStatus === WalletStatus.Rejected) {
-                  return "Unable to Load Key";
-                } else {
-                  return displayAccountName ? (
-                    displayAccountName
-                  ) : (
-                    <Skeleton height="21px" />
-                  );
-                }
-              })()}
-            </div>
+            <div className={style["wallet-address"]}>{renderAccountName()}</div>
             <div className={style["wallet-detail-body"]}>
-              <div className={style["walletRejected"]}>
-                {accountInfo.walletStatus === WalletStatus.Rejected && (
-                  <ToolTip
-                    tooltip={(() => {
-                      if (
-                        accountInfo.rejectionReason &&
-                        accountInfo.rejectionReason instanceof WalletError &&
-                        accountInfo.rejectionReason.module === "keyring" &&
-                        accountInfo.rejectionReason.code === 152
-                      ) {
-                        // Return unsupported device message
-                        return "Ledger is not supported for this chain";
-                      }
-
-                      let result = "Failed to load account by unknown reason";
-                      if (accountInfo.rejectionReason) {
-                        result += `: ${accountInfo.rejectionReason.toString()}`;
-                      }
-
-                      return result;
-                    })()}
-                    theme="dark"
-                    trigger="hover"
-                    options={{
-                      placement: "top",
-                    }}
-                  >
-                    <i
-                      className={`fas fa-exclamation-triangle text-danger ${style["unsupportedKeyIcon"]}`}
-                    />
-                  </ToolTip>
-                )}
+              <div style={{ width: "100%" }}>
+                <WalletContent
+                  walletStatus={accountInfo.walletStatus}
+                  rejectionReason={accountInfo.rejectionReason}
+                  isASIChain={isASIChain}
+                  isEvm={isEvm}
+                  asiChainAddress={asiChainAddress}
+                  displayBech32Address={displayBech32Address}
+                  displayEvmAddress={displayEvmAddress}
+                  onCopy={copyAddress}
+                  outerDivRef={bech32TailMeasureRef}
+                  outerDivRefEvm={evmTailMeasureRef}
+                />
               </div>
-
-              {/*
-                TODO(merge-refactor): refactor WalletContent, ASIChainAddressDisplay / Bech32AddressDisplay / EVMAddressDisplay
-              */}
-
-              {accountInfo.walletStatus !== WalletStatus.Rejected &&
-                !isEvm &&
-                !isASIChain && (
-                  <React.Fragment>
-                    {displayBech32Address ? (
-                      <div
-                        className={style["wallet-address-row"]}
-                        onClick={() => copyAddress(displayBech32Address)}
-                      >
-                        <div className={style["wallet-address-content"]}>
-                          <Address
-                            maxCharacters={16}
-                            lineBreakBeforePrefix={false}
-                            tooltipAddress={displayBech32Address}
-                            childrenClassName={
-                              style["wallet-address-tooltip-trigger"]
-                            }
-                            childrenStyle={{ opacity: 1 }}
-                          >
-                            <div className={style["wallet-address-inline"]}>
-                              <span className={style["wallet-address-prefix"]}>
-                                {splitBech32(displayBech32Address).prefix}
-                              </span>
-                              <div className={style["wallet-address-text"]}>
-                                <div
-                                  ref={bech32TailMeasureRef}
-                                  className={
-                                    style["wallet-address-tail-measure"]
-                                  }
-                                >
-                                  <ResponsiveAddressView
-                                    containerRef={bech32TailMeasureRef}
-                                    address={
-                                      splitBech32(displayBech32Address).rest
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </Address>
-                        </div>
-                        <div
-                          className={style["wallet-address-copy-slot"]}
-                          aria-hidden="true"
-                        >
-                          <img
-                            src={require("@assets/svg/wireframe/copyGrey.svg")}
-                            alt=""
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <Skeleton height="21px" />
-                    )}
-                  </React.Fragment>
-                )}
-
-              {/*
-                TODO: refactor ASI rendering
-              */}
-
-              {accountInfo.walletStatus !== WalletStatus.Rejected &&
-                !isASIChain &&
-                (isEvm || accountInfo.hasEthereumHexAddress) && (
-                  <div
-                    className={style["wallet-address-row"]}
-                    onClick={() => copyAddress(accountInfo.ethereumHexAddress)}
-                  >
-                    <div className={style["wallet-address-content"]}>
-                      <Address
-                        isRaw={true}
-                        placement="bottom-end"
-                        tooltipAddress={displayEvmAddress}
-                        childrenClassName={
-                          style["wallet-address-tooltip-trigger"]
-                        }
-                        childrenStyle={{ opacity: 1 }}
-                      >
-                        <div className={style["wallet-address-inline"]}>
-                          {displayEvmAddress ? (
-                            displayEvmAddress.length === 42 ? (
-                              <React.Fragment>
-                                <span
-                                  className={style["wallet-address-prefix"]}
-                                >
-                                  {displayEvmAddress.slice(0, 2)}
-                                </span>
-                                <div className={style["wallet-address-text"]}>
-                                  <div
-                                    ref={evmTailMeasureRef}
-                                    className={
-                                      style["wallet-address-tail-measure"]
-                                    }
-                                  >
-                                    <ResponsiveAddressView
-                                      containerRef={evmTailMeasureRef}
-                                      address={displayEvmAddress.slice(2)}
-                                    />
-                                  </div>
-                                </div>
-                              </React.Fragment>
-                            ) : (
-                              <React.Fragment>
-                                {displayEvmAddress}
-                              </React.Fragment>
-                            )
-                          ) : (
-                            "..."
-                          )}
-                        </div>
-                      </Address>
-                    </div>
-                    <div
-                      className={style["wallet-address-copy-slot"]}
-                      aria-hidden="true"
-                    >
-                      <img
-                        src={require("@assets/svg/wireframe/copy.svg")}
-                        alt=""
-                      />
-                    </div>
-                  </div>
-                )}
             </div>
           </div>
-          <Button
-            onClick={() => {
-              setIsSelectWalletOpen(true);
-              analyticsStore.logEvent("change_wallet_click", {
-                pageName: "Home",
-              });
-              // analyticsStore.logEvent("account_icon_click", {
-              //   pageName: "Home",
-              // });
-            }}
-            className={style["change-net"]}
-          >
+          <Button onClick={handleWalletSelect} className={style["change-net"]}>
             <img
               src={require("@assets/svg/wireframe/chevron-down.svg")}
               alt=""
             />
           </Button>
         </div>
-        {icnsPrimaryName ? (
-          <div style={{ display: "flex", alignItems: "center", height: "1px" }}>
+
+        {icnsPrimaryName && (
+          <div className={style["icns-mark-container"]}>
             <img
-              style={{
-                width: "24px",
-                height: "24px",
-                marginLeft: "2px",
-              }}
+              className={style["icns-mark-image"]}
               src={require("../../../public/assets/img/icns-mark.png")}
               alt="icns-registered"
             />
           </div>
-        ) : null}
-
-        {/*
-          TODO: refactor PendingTransactions
-        */}
-
-        {Object.values(activityStore.getPendingTxn).length > 0 && (
-          <div
-            className={style["wallet-detail-card"]}
-            style={{
-              marginTop: "12px",
-              gap: "2px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <i className="fas fa-spinner fa-spin ml-2 mr-2" />
-              {Object.values(activityStore.getPendingTxn).length > 1 ? (
-                <div>
-                  {Object.values(activityStore.getPendingTxn).length}{" "}
-                  transactions in progress
-                </div>
-              ) : (
-                <div>{txType[currentTxnType]} in progress</div>
-              )}
-            </div>
-          </div>
         )}
-        {/*
-          TODO: refactor RewardsCard
-        */}
-        {rewardsBalNumber > 0 && (
-          <div
-            className={style["rewards-card"]}
-            onClick={() => {
-              analyticsStore.logEvent("claim_all_staking_reward_click", {
-                pageName: "Home",
-              });
-              navigate("/stake");
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "center",
-              }}
-            >
-              <img src={require("@assets/svg/wireframe/stake.svg")} />
-              <div>You’ve claimable staking rewards </div>
-            </div>
 
-            <i key="next" className="fas fa-chevron-right" />
-          </div>
-        )}
+        <PendingTransactions
+          pendingTxns={activityStore.getPendingTxn}
+          currentTxnType={currentTxnType}
+        />
+
+        <RewardsCard
+          rewardsBalance={rewardsBalNumber}
+          onNavigate={handleClaimRewards}
+        />
+
         <Balances tokenState={tokenState} />
       </div>
     );

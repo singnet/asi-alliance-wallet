@@ -12,6 +12,12 @@ interface AddressDisplayProps {
   isBech32?: boolean;
 }
 
+interface EVMAddressDisplayProps {
+  address: string;
+  onCopy: (address: string) => void;
+  containerRef: React.RefObject<HTMLDivElement>;
+}
+
 export const ASIChainAddressDisplay: React.FC<AddressDisplayProps> = ({
   address,
   onCopy,
@@ -89,12 +95,6 @@ export const Bech32AddressDisplay: React.FC<AddressDisplayProps> = ({
     </div>
   );
 };
-
-interface EVMAddressDisplayProps {
-  address: string;
-  onCopy: (address: string) => void;
-  containerRef: React.RefObject<HTMLDivElement>;
-}
 
 export const EVMAddressDisplay: React.FC<EVMAddressDisplayProps> = ({
   address,
